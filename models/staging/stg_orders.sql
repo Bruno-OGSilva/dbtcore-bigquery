@@ -1,47 +1,39 @@
--- models/staging/stg_orders.sql
+WITH
 
-with
+SOURCE AS (
 
-source_2023 as (
-    select * from {{ source('ecom', 'raw_orders_2023') }}
+-- Usando a macro dbt_utils.union_relations para combinar as tabelas raw_orders_2016 e raw_orders_2017
+    {{ dbt_utils.union_relations(
+        relations=[
+            source('ecom', 'raw_orders_2023'),
+            source('ecom', 'raw_orders_2024')
+        ]
+    ) }}
+
 ),
 
-source_2024 as (
-    select * from {{ source('ecom', 'raw_orders_2024') }}
-),
+RENAMED AS (
 
-combined_sources as (
-    select * from source_2023
-    union all
-    select * from source_2024
-),
-
-renamed as (
-
-    select
+    SELECT
 
         ----------  ids
-        id as order_id,
-        store_id as location_id,
-        customer as customer_id,
+        ID AS ORDER_ID,
+        STORE_ID AS LOCATION_ID,
+        CUSTOMER AS CUSTOMER_ID,
 
         ---------- numerics
-        subtotal as subtotal_cents,
-        tax_paid as tax_paid_cents,
-        order_total as order_total_cents,
-        -- Substituição manual do cents_to_dollars
-        {{ cents_to_dollars('subtotal') }} as subtotal,
-        -- Substituição manual do cents_to_dollars
-        {{ cents_to_dollars('tax_paid') }} as tax_paid,
-        -- Substituição manual do cents_to_dollars
-        {{ cents_to_dollars('order_total') }} as order_total,
+        SUBTOTAL AS SUBTOTAL_CENTS,
+        TAX_PAID AS TAX_PAID_CENTS,
+        ORDER_TOTAL AS ORDER_TOTAL_CENTS,
+        {{ cents_to_dollars('subtotal') }} AS SUBTOTAL,
+        {{ cents_to_dollars('tax_paid') }} AS TAX_PAID,
+        {{ cents_to_dollars('order_total') }} AS ORDER_TOTAL,
 
         ---------- timestamps
-        -- Substituição manual do dbt.date_trunc
-        {{ date_trunc(ordered_at, day) }} as ordered_at
+        {{ dbt.date_trunc('day','ordered_at') }} AS ORDERED_AT
 
-    from combined_sources
+    FROM SOURCE
 
 )
 
-select * from renamed
+SELECT * FROM RENAMED
